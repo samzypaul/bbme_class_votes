@@ -2,15 +2,26 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AdminResults } from "@/components/admin/admin-results";
+import { ElectionSwitcher } from "@/components/admin/election-switcher";
 import { createClient } from "@/lib/supabase/server";
-import { getActivePositions, getAllPositionResults, getCurrentElection } from "@/lib/voting/queries";
+import { getActivePositions, getAllPositionResults } from "@/lib/voting/queries";
+import { autoCloseIfExpired } from "@/lib/voting/election-lifecycle";
 import type { AiSummary, PositionResultHistory } from "@/types/database";
 
-export default async function AdminResultsPage() {
+export default async function AdminResultsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ election?: string }>;
+}) {
+  const { election: electionIdParam } = await searchParams;
   const supabase = await createClient();
-  const election = await getCurrentElection(supabase);
 
-  if (!election) {
+  const { data: elections } = await supabase
+    .from("elections")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (!elections || elections.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
@@ -22,6 +33,14 @@ export default async function AdminResultsPage() {
       </Card>
     );
   }
+
+  const selected =
+    elections.find((e) => e.id === electionIdParam) ??
+    elections.find((e) => e.status === "open") ??
+    elections.find((e) => e.status === "draft") ??
+    elections[0];
+
+  const election = await autoCloseIfExpired(selected);
 
   const [positions, { count: totalClassMembers }, { data: summaries }, { data: history }] = await Promise.all([
     getActivePositions(supabase, election.id),
@@ -45,9 +64,12 @@ export default async function AdminResultsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-foreground">Results</h1>
-        <p className="text-sm text-muted-foreground">{election.name}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-foreground">Results</h1>
+          <p className="text-sm text-muted-foreground">{election.name}</p>
+        </div>
+        <ElectionSwitcher elections={elections} currentId={election.id} />
       </div>
       <AdminResults
         electionId={election.id}

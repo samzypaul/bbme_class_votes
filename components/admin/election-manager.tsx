@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { ElectionStatusBadge } from "@/components/election/status-badge";
 import { formatDateTime } from "@/lib/utils";
-import { createElection, updateElection } from "@/app/actions/admin";
+import { createElection, deleteElection, updateElection } from "@/app/actions/admin";
 import type { Election, ElectionStatus } from "@/types/database";
 
 function toLocalInputValue(iso: string) {
@@ -35,8 +35,32 @@ function toLocalInputValue(iso: string) {
 }
 
 export function ElectionManager({ elections }: { elections: Election[] }) {
+  const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Election | null>(null);
+  const [, startTransition] = useTransition();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  function remove(election: Election) {
+    if (
+      !confirm(
+        `Permanently delete "${election.name}"? This deletes its positions, candidates, every vote cast, AI summaries, and result history. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeletingId(election.id);
+    startTransition(async () => {
+      const result = await deleteElection(election.id);
+      setDeletingId(null);
+      if (!result.ok) {
+        toast.error(result.error ?? "Could not delete the election.");
+        return;
+      }
+      toast.success("Election deleted.");
+      router.refresh();
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -72,16 +96,28 @@ export function ElectionManager({ elections }: { elections: Election[] }) {
                     {formatDateTime(election.start_at)} &rarr; {formatDateTime(election.end_at)}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditing(election);
-                    setDialogOpen(true);
-                  }}
-                >
-                  Edit
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditing(election);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    loading={deletingId === election.id}
+                    onClick={() => remove(election)}
+                  >
+                    <Trash2 />
+                    Delete
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

@@ -112,6 +112,45 @@ export async function updateElection(id: string, input: unknown): Promise<Action
   return { ok: true };
 }
 
+/**
+ * Permanently deletes an election and everything under it (positions,
+ * candidates, votes, AI summaries, result history) via cascading foreign
+ * keys. Uses the service-role client because deleting any cast votes would
+ * otherwise hit the same immutability trigger resetPositionVotes works
+ * around (see supabase/migrations/0003_admin_vote_reset.sql) -- a regular
+ * admin session would have the delete blocked partway through.
+ */
+export async function deleteElection(id: string): Promise<ActionResult> {
+  await requireAdmin();
+
+  const admin = createAdminClient();
+  const { data: election, error: fetchError } = await admin
+    .from("elections")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (fetchError || !election) return { ok: false, error: "Election not found." };
+
+  const { count } = await admin
+    .from("votes")
+    .select("id", { count: "exact", head: true })
+    .eq("election_id", id);
+
+  const { error } = await admin.from("elections").delete().eq("id", id);
+  if (error) return { ok: false, error: "Could not delete the election." };
+
+  await audit("ADMIN_DELETED_ELECTION", "election", id, {
+    name: election.name,
+    votes_deleted: count ?? 0,
+  });
+  revalidateElectionSurfaces();
+  revalidatePath("/results");
+  revalidatePath("/admin/results");
+  revalidatePath("/admin/elections");
+  revalidatePath("/admin/positions");
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Positions
 // ---------------------------------------------------------------------------
