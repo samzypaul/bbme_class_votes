@@ -1,26 +1,29 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RotateCcw, Sparkles } from "lucide-react";
+import { History, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ResultsBarChart } from "@/components/results/results-bar-chart";
 import { generateAiSummary, resetPositionVotes } from "@/app/actions/admin";
-import { percentage } from "@/lib/utils";
+import { formatDateTime, percentage } from "@/lib/utils";
 import type { PositionResult } from "@/lib/voting/queries";
-import type { AiSummary } from "@/types/database";
+import type { AiSummary, PositionResultHistory } from "@/types/database";
 
 export function AdminResults({
   electionId,
   results,
   summaries,
+  historyByPosition,
   totalRegisteredVoters,
 }: {
   electionId: string;
   results: PositionResult[];
   summaries: Map<string, AiSummary>;
+  historyByPosition: Map<string, PositionResultHistory[]>;
   totalRegisteredVoters: number;
 }) {
   return (
@@ -31,6 +34,7 @@ export function AdminResults({
           electionId={electionId}
           result={result}
           summary={summaries.get(result.position.id) ?? null}
+          history={historyByPosition.get(result.position.id) ?? []}
           totalRegisteredVoters={totalRegisteredVoters}
         />
       ))}
@@ -42,15 +46,18 @@ function PositionAdminCard({
   electionId,
   result,
   summary,
+  history,
   totalRegisteredVoters,
 }: {
   electionId: string;
   result: PositionResult;
   summary: AiSummary | null;
+  history: PositionResultHistory[];
   totalRegisteredVoters: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const { position, results, top5, totalVotes, winners, isTie } = result;
   const winnerIds = new Set(winners.map((w) => w.candidate_id));
   const turnout = totalRegisteredVoters > 0 ? percentage(totalVotes, totalRegisteredVoters) : 0;
@@ -93,6 +100,12 @@ function PositionAdminCard({
           {position.name}
         </CardTitle>
         <div className="flex items-center gap-2">
+          {history.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+              <History />
+              History ({history.length})
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -118,7 +131,7 @@ function PositionAdminCard({
           <Stat label={isTie ? "Result" : "Margin"} value={isTie ? "Tie" : marginLabel(results)} />
         </div>
 
-        {top5.length > 0 ? (
+        {totalVotes > 0 && top5.length > 0 ? (
           <ResultsBarChart data={top5} totalVotes={totalVotes} winnerIds={winnerIds} />
         ) : (
           <p className="text-sm text-muted-foreground">No votes recorded yet.</p>
@@ -133,6 +146,34 @@ function PositionAdminCard({
           </div>
         )}
       </CardContent>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Past polls &mdash; {position.name}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 space-y-4 overflow-auto">
+            {history.map((snapshot) => (
+              <div key={snapshot.id} className="rounded-lg border border-border p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Reset on {formatDateTime(snapshot.reset_at)} &middot; {snapshot.total_votes} vote(s)
+                </p>
+                <div className="space-y-1">
+                  {snapshot.results.map((row) => (
+                    <div key={row.candidate_id} className="flex items-center justify-between text-sm">
+                      <span className="text-foreground">{row.candidate_name}</span>
+                      <span className="font-semibold text-muted-foreground">
+                        {row.vote_count} votes &middot;{" "}
+                        {percentage(Number(row.vote_count), snapshot.total_votes)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { AdminResults } from "@/components/admin/admin-results";
 import { createClient } from "@/lib/supabase/server";
 import { getActivePositions, getAllPositionResults, getCurrentElection } from "@/lib/voting/queries";
-import type { AiSummary } from "@/types/database";
+import type { AiSummary, PositionResultHistory } from "@/types/database";
 
 export default async function AdminResultsPage() {
   const supabase = await createClient();
@@ -23,14 +23,25 @@ export default async function AdminResultsPage() {
     );
   }
 
-  const [positions, { count: totalClassMembers }, { data: summaries }] = await Promise.all([
+  const [positions, { count: totalClassMembers }, { data: summaries }, { data: history }] = await Promise.all([
     getActivePositions(supabase, election.id),
     supabase.from("class_members").select("*", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("ai_summaries").select("*").eq("election_id", election.id),
+    supabase
+      .from("position_result_history")
+      .select("*")
+      .eq("election_id", election.id)
+      .order("reset_at", { ascending: false }),
   ]);
 
   const results = await getAllPositionResults(supabase, positions);
   const summaryMap = new Map<string, AiSummary>((summaries ?? []).map((s) => [s.position_id, s]));
+  const historyByPosition = new Map<string, PositionResultHistory[]>();
+  for (const row of history ?? []) {
+    const list = historyByPosition.get(row.position_id) ?? [];
+    list.push(row);
+    historyByPosition.set(row.position_id, list);
+  }
 
   return (
     <div className="space-y-6">
@@ -42,6 +53,7 @@ export default async function AdminResultsPage() {
         electionId={election.id}
         results={results}
         summaries={summaryMap}
+        historyByPosition={historyByPosition}
         totalRegisteredVoters={totalClassMembers ?? 0}
       />
     </div>

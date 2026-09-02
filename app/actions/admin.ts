@@ -407,14 +407,32 @@ export async function removeCandidate(id: string): Promise<ActionResult> {
  * member's ballot.
  */
 export async function resetPositionVotes(positionId: string): Promise<ActionResult> {
-  await requireAdmin();
+  const adminProfile = await requireAdmin();
 
   const admin = createAdminClient();
-  const { count, error: countError } = await admin
-    .from("votes")
-    .select("id", { count: "exact", head: true })
-    .eq("position_id", positionId);
-  if (countError) return { ok: false, error: "Could not read the current votes." };
+  const { data: position, error: positionError } = await admin
+    .from("positions")
+    .select("*")
+    .eq("id", positionId)
+    .single();
+  if (positionError || !position) return { ok: false, error: "Position not found." };
+
+  const { data: resultsData } = await admin.rpc("get_position_results", { p_position_id: positionId });
+  const results = resultsData ?? [];
+  const totalVotes = results.reduce((sum, r) => sum + Number(r.vote_count), 0);
+
+  // Archive the current tally (admin-panel-only history) before wiping it,
+  // so a reset doesn't erase the record of what the poll looked like.
+  if (totalVotes > 0) {
+    await admin.from("position_result_history").insert({
+      election_id: position.election_id,
+      position_id: position.id,
+      position_name: position.name,
+      results,
+      total_votes: totalVotes,
+      reset_by: adminProfile.id,
+    });
+  }
 
   const { error: deleteVotesError } = await admin.from("votes").delete().eq("position_id", positionId);
   if (deleteVotesError) return { ok: false, error: "Could not reset the votes for this position." };
@@ -422,7 +440,7 @@ export async function resetPositionVotes(positionId: string): Promise<ActionResu
   // The cached AI summary would otherwise keep describing the old tally.
   await admin.from("ai_summaries").delete().eq("position_id", positionId);
 
-  await audit("ADMIN_RESET_POSITION_VOTES", "position", positionId, { votes_deleted: count ?? 0 });
+  await audit("ADMIN_RESET_POSITION_VOTES", "position", positionId, { votes_deleted: totalVotes });
   revalidateElectionSurfaces();
   revalidatePath("/results");
   revalidatePath("/admin/results");

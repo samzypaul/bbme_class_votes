@@ -83,6 +83,17 @@ export type AiSummary = {
   generated_at: string;
 };
 
+export type PositionResultHistory = {
+  id: string;
+  election_id: string;
+  position_id: string;
+  position_name: string;
+  results: PositionResultRow[];
+  total_votes: number;
+  reset_by: string | null;
+  reset_at: string;
+};
+
 export type AuditLog = {
   id: string;
   user_id: string | null;
@@ -143,6 +154,17 @@ export type Database = {
         Row: AiSummary;
         Insert: Partial<AiSummary> & { election_id: string; position_id: string; summary: string };
         Update: Partial<AiSummary>;
+      } & NoRelationships;
+      position_result_history: {
+        Row: PositionResultHistory;
+        Insert: Partial<PositionResultHistory> & {
+          election_id: string;
+          position_id: string;
+          position_name: string;
+          results: PositionResultRow[];
+          total_votes: number;
+        };
+        Update: Partial<PositionResultHistory>;
       } & NoRelationships;
       audit_logs: {
         Row: AuditLog;

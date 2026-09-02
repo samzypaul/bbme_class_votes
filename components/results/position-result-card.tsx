@@ -13,7 +13,7 @@ export function PositionResultCard({
   result: PositionResult;
   aiSummary: AiSummary | null;
 }) {
-  const { position, results, top5, totalVotes, winners, isTie } = result;
+  const { position, top5, totalVotes, winners, isTie } = result;
   const winnerIds = new Set(winners.map((w) => w.candidate_id));
 
   return (
@@ -24,7 +24,7 @@ export function PositionResultCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {results.length === 0 ? (
+        {totalVotes === 0 ? (
           <p className="text-sm text-muted-foreground">No votes were cast for this position.</p>
         ) : isTie ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
@@ -55,7 +55,7 @@ export function PositionResultCard({
           </div>
         )}
 
-        {top5.length > 0 && (
+        {totalVotes > 0 && top5.length > 0 && (
           <ResultsBarChart data={top5} totalVotes={totalVotes} winnerIds={winnerIds} />
         )}
 
