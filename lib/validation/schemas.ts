@@ -57,14 +57,20 @@ export const csvClassMemberRowSchema = z.object({
 });
 export type CsvClassMemberRow = z.infer<typeof csvClassMemberRowSchema>;
 
+export const candidateSchema = z.object({
+  position_id: z.string().guid(),
+  class_member_id: z.string().guid(),
+});
+export type CandidateInput = z.infer<typeof candidateSchema>;
+
 // One selection per position submitted from the voting form.
 export const ballotSelectionSchema = z.object({
-  position_id: z.string().uuid(),
-  candidate_id: z.string().uuid(),
+  position_id: z.string().guid(),
+  candidate_id: z.string().guid(),
 });
 
 export const castVotesSchema = z.object({
-  election_id: z.string().uuid(),
+  election_id: z.string().guid(),
   selections: z.array(ballotSelectionSchema).min(1, "Select at least one candidate."),
 });
 export type CastVotesInput = z.infer<typeof castVotesSchema>;

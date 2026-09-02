@@ -1,19 +1,15 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-/**
- * Text-based MUBAS emblem. Swap for /public/images/mubas-logo.png (an <Image>
- * tag) if/when an official logo asset is supplied -- see README.
- */
 export function MubasMark({ className }: { className?: string }) {
   return (
-    <div
-      className={cn(
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-black text-primary-foreground",
-        className
-      )}
-      aria-hidden="true"
-    >
-      M
+    <div className={cn("relative h-9 w-9 shrink-0", className)}>
+      <Image
+        src="/images/mubas-logo-full.png"
+        alt="MUBAS logo"
+        fill
+        className="object-contain"
+      />
     </div>
   );
 }

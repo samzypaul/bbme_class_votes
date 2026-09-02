@@ -45,6 +45,23 @@ export type Position = {
   created_at: string;
 };
 
+export type Candidate = {
+  id: string;
+  position_id: string;
+  class_member_id: string;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+};
+
+/** A candidate joined with its class member's display name, as used by the
+ * voting UI (id here is candidates.id -- the value submitted as a vote's
+ * candidate_id -- not the underlying class_members.id). */
+export type CandidateOption = {
+  id: string;
+  full_name: string;
+};
+
 export type Vote = {
   id: string;
   election_id: string;
@@ -106,6 +123,11 @@ export type Database = {
         Row: Position;
         Insert: Partial<Position> & { election_id: string; name: string };
         Update: Partial<Position>;
+      } & NoRelationships;
+      candidates: {
+        Row: Candidate;
+        Insert: Partial<Candidate> & { position_id: string; class_member_id: string };
+        Update: Partial<Candidate>;
       } & NoRelationships;
       votes: {
         Row: Vote;

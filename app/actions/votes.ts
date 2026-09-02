@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth/helpers";
 import { castVotesSchema } from "@/lib/validation/schemas";
-import { getActivePositions, getRoster, getUserVoteMap } from "@/lib/voting/queries";
+import { getActivePositions, getCandidatesByPositions, getUserVoteMap } from "@/lib/voting/queries";
 
 export interface CastVotesResult {
   ok: boolean;
@@ -31,6 +31,7 @@ export async function castVotes(input: unknown): Promise<CastVotesResult> {
 
   const parsed = castVotesSchema.safeParse(input);
   if (!parsed.success) {
+    console.error("castVotes: schema validation failed", JSON.stringify(input), parsed.error.flatten());
     return { ok: false, error: "Invalid ballot submission." };
   }
   const { election_id, selections } = parsed.data;
@@ -50,25 +51,28 @@ export async function castVotes(input: unknown): Promise<CastVotesResult> {
   }
 
   const now = Date.now();
-  if (now < new Date(election.start_at).getTime() || now > new Date(election.end_at).getTime()) {
+  if (now < new Date(election.start_at).getTime()) {
+    return { ok: false, error: "Voting hasn't started yet. Your vote could not be submitted." };
+  }
+  if (now > new Date(election.end_at).getTime()) {
     return { ok: false, error: "Voting is now closed. Your vote could not be submitted." };
   }
 
-  const [positions, roster, existingVotes] = await Promise.all([
+  const [positions, existingVotes] = await Promise.all([
     getActivePositions(supabase, election_id),
-    getRoster(supabase),
     getUserVoteMap(supabase, profile.id, election_id),
   ]);
 
   const positionIds = new Set(positions.map((p) => p.id));
-  const candidateIds = new Set(roster.map((c) => c.id));
+  const candidatesByPosition = await getCandidatesByPositions(supabase, [...positionIds]);
 
   for (const selection of selections) {
     if (!positionIds.has(selection.position_id)) {
       return { ok: false, error: "One of the selected positions is not open for voting." };
     }
-    if (!candidateIds.has(selection.candidate_id)) {
-      return { ok: false, error: "Please select a valid class member from the suggestions." };
+    const nominees = candidatesByPosition[selection.position_id] ?? [];
+    if (!nominees.some((c) => c.id === selection.candidate_id)) {
+      return { ok: false, error: "Please select a valid nominee for this position." };
     }
     if (existingVotes[selection.position_id]) {
       return { ok: false, error: "You have already voted for this position." };

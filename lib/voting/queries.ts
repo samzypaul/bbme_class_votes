@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, ClassMember, Election, Position, PositionResultRow } from "@/types/database";
+import type { Database, CandidateOption, Election, Position, PositionResultRow } from "@/types/database";
+import { autoCloseIfExpired } from "@/lib/voting/election-lifecycle";
 
 type Client = SupabaseClient<Database>;
 
@@ -15,11 +16,12 @@ export async function getCurrentElection(supabase: Client): Promise<Election | n
 
   if (!data || data.length === 0) return null;
 
-  return (
+  const election =
     data.find((e) => e.status === "open") ??
     data.find((e) => e.status === "draft") ??
-    data[0]
-  );
+    data[0];
+
+  return autoCloseIfExpired(election);
 }
 
 export async function getActivePositions(
@@ -36,14 +38,43 @@ export async function getActivePositions(
   return data ?? [];
 }
 
-export async function getRoster(supabase: Client): Promise<ClassMember[]> {
-  const { data } = await supabase
-    .from("class_members")
-    .select("*")
-    .eq("is_active", true)
-    .order("full_name", { ascending: true });
+/** Map of position_id -> its active nominees, for scoping the ballot's
+ * candidate picker to only whoever was actually nominated for that position. */
+export async function getCandidatesByPositions(
+  supabase: Client,
+  positionIds: string[]
+): Promise<Record<string, CandidateOption[]>> {
+  if (positionIds.length === 0) return {};
 
-  return data ?? [];
+  const { data: candidateRows } = await supabase
+    .from("candidates")
+    .select("*")
+    .in("position_id", positionIds)
+    .eq("is_active", true);
+
+  const rows = candidateRows ?? [];
+  if (rows.length === 0) return {};
+
+  const memberIds = [...new Set(rows.map((r) => r.class_member_id))];
+  const { data: members } = await supabase
+    .from("class_members")
+    .select("id, full_name")
+    .in("id", memberIds);
+
+  const nameById = new Map((members ?? []).map((m) => [m.id, m.full_name]));
+
+  const map: Record<string, CandidateOption[]> = {};
+  for (const row of rows) {
+    const option: CandidateOption = {
+      id: row.id,
+      full_name: nameById.get(row.class_member_id) ?? "Unknown",
+    };
+    (map[row.position_id] ??= []).push(option);
+  }
+  for (const list of Object.values(map)) {
+    list.sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }
+  return map;
 }
 
 /** Map of position_id -> candidate_id for the signed-in member's own votes. */

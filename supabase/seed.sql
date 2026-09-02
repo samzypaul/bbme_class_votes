@@ -48,3 +48,15 @@ values
   ('Yamikani Chunga', 'Biomedical Engineering', 2025),
   ('Precious Gondwe', 'Biomedical Engineering', 2025)
 on conflict (full_name, graduation_year) do nothing;
+
+-- ----------------------------------------------------------------------------
+-- 4. Candidates (PLACEHOLDER -- nominates every placeholder member for every
+-- placeholder position; replace with real per-position nominations before
+-- opening the election to real voters, via Admin -> Positions).
+-- ----------------------------------------------------------------------------
+insert into public.candidates (position_id, class_member_id)
+select p.id, cm.id
+from public.positions p
+cross join public.class_members cm
+where p.election_id = '00000000-0000-0000-0000-000000000001'
+on conflict (position_id, class_member_id) do nothing;

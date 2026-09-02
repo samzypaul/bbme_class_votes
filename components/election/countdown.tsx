@@ -29,6 +29,9 @@ export function Countdown({
   const [remaining, setRemaining] = useState<ReturnType<typeof getRemaining>>(null);
 
   useEffect(() => {
+    // Client-only clock sync after SSR hydration (see getRemaining's caller) --
+    // there's no non-effect way to read Date.now() once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRemaining(getRemaining(targetIso));
     const interval = setInterval(() => {
       const next = getRemaining(targetIso);

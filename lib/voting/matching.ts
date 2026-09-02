@@ -1,8 +1,8 @@
 import { distance } from "fastest-levenshtein";
-import type { ClassMember } from "@/types/database";
+import type { CandidateOption } from "@/types/database";
 
 export interface CandidateMatch {
-  candidate: ClassMember;
+  candidate: CandidateOption;
   score: number; // 0 = exact match, higher = further away
 }
 
@@ -19,8 +19,8 @@ export interface CandidateMatch {
  */
 export function resolveCandidate(
   input: string,
-  roster: ClassMember[]
-): { exact: ClassMember } | { suggestions: ClassMember[] } | { suggestions: [] } {
+  roster: CandidateOption[]
+): { exact: CandidateOption } | { suggestions: CandidateOption[] } | { suggestions: [] } {
   const normalized = input.trim().toLowerCase();
   if (!normalized) return { suggestions: [] };
 
@@ -49,12 +49,12 @@ function candidate_threshold(input: string) {
 }
 
 /** Live autocomplete suggestions as the member types, ranked by relevance. */
-export function searchCandidates(query: string, roster: ClassMember[], limit = 8): ClassMember[] {
+export function searchCandidates(query: string, roster: CandidateOption[], limit = 8): CandidateOption[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return roster.slice(0, limit);
 
-  const starts: ClassMember[] = [];
-  const contains: ClassMember[] = [];
+  const starts: CandidateOption[] = [];
+  const contains: CandidateOption[] = [];
   const fuzzy: CandidateMatch[] = [];
 
   for (const member of roster) {

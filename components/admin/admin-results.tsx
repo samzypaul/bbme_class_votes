@@ -3,11 +3,11 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResultsBarChart } from "@/components/results/results-bar-chart";
-import { generateAiSummary } from "@/app/actions/admin";
+import { generateAiSummary, resetPositionVotes } from "@/app/actions/admin";
 import { percentage } from "@/lib/utils";
 import type { PositionResult } from "@/lib/voting/queries";
 import type { AiSummary } from "@/types/database";
@@ -67,16 +67,48 @@ function PositionAdminCard({
     });
   }
 
+  function resetVotes() {
+    if (
+      !confirm(
+        `Delete all ${totalVotes} vote(s) for ${position.name}? Members will be able to vote again for this position. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await resetPositionVotes(position.id);
+      if (!res.ok) {
+        toast.error(res.error ?? "Could not reset votes.");
+        return;
+      }
+      toast.success(`Votes for ${position.name} have been reset.`);
+      router.refresh();
+    });
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-base uppercase tracking-wide text-primary">
           {position.name}
         </CardTitle>
-        <Button size="sm" variant="outline" onClick={generate} loading={isPending}>
-          <Sparkles />
-          {summary ? "Regenerate Summary" : "Generate AI Summary"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={resetVotes}
+            loading={isPending}
+            disabled={totalVotes === 0}
+            className="text-destructive hover:text-destructive"
+          >
+            <RotateCcw />
+            Reset Votes
+          </Button>
+          <Button size="sm" variant="outline" onClick={generate} loading={isPending}>
+            <Sparkles />
+            {summary ? "Regenerate Summary" : "Generate AI Summary"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

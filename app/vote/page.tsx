@@ -9,8 +9,8 @@ import { getCurrentProfile } from "@/lib/auth/helpers";
 import { createClient } from "@/lib/supabase/server";
 import {
   getActivePositions,
+  getCandidatesByPositions,
   getCurrentElection,
-  getRoster,
   getUserVoteMap,
 } from "@/lib/voting/queries";
 import { formatDateTime } from "@/lib/utils";
@@ -75,9 +75,8 @@ export default async function VotePage() {
 
 async function OpenElection({ election, voterId }: { election: NonNullable<Awaited<ReturnType<typeof getCurrentElection>>>; voterId: string }) {
   const supabase = await createClient();
-  const [positions, roster, voteMap] = await Promise.all([
+  const [positions, voteMap] = await Promise.all([
     getActivePositions(supabase, election.id),
-    getRoster(supabase),
     getUserVoteMap(supabase, voterId, election.id),
   ]);
 
@@ -93,6 +92,10 @@ async function OpenElection({ election, voterId }: { election: NonNullable<Await
 
   const unvotedPositions = positions.filter((p) => !voteMap[p.id]);
   const votedPositionNames = positions.filter((p) => voteMap[p.id]).map((p) => p.name);
+  const candidatesByPosition = await getCandidatesByPositions(
+    supabase,
+    unvotedPositions.map((p) => p.id)
+  );
 
   return (
     <div className="space-y-8">
@@ -118,7 +121,7 @@ async function OpenElection({ election, voterId }: { election: NonNullable<Await
         <VotingForm
           election={election}
           positions={unvotedPositions}
-          roster={roster}
+          candidatesByPosition={candidatesByPosition}
           alreadyVotedPositionNames={votedPositionNames}
         />
       )}

@@ -17,21 +17,21 @@ import {
 } from "@/components/ui/dialog";
 import { CandidatePicker } from "@/components/voting/candidate-picker";
 import { castVotes } from "@/app/actions/votes";
-import type { ClassMember, Election, Position } from "@/types/database";
+import type { CandidateOption, Election, Position } from "@/types/database";
 
 export function VotingForm({
   election,
   positions,
-  roster,
+  candidatesByPosition,
   alreadyVotedPositionNames,
 }: {
   election: Election;
   positions: Position[];
-  roster: ClassMember[];
+  candidatesByPosition: Record<string, CandidateOption[]>;
   alreadyVotedPositionNames: string[];
 }) {
   const router = useRouter();
-  const [selections, setSelections] = useState<Record<string, ClassMember | null>>({});
+  const [selections, setSelections] = useState<Record<string, CandidateOption | null>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -95,7 +95,7 @@ export function VotingForm({
             <CardContent>
               <Label className="mb-2 block">Who do you want to vote for?</Label>
               <CandidatePicker
-                roster={roster}
+                roster={candidatesByPosition[position.id] ?? []}
                 value={selections[position.id] ?? null}
                 onChange={(candidate) =>
                   setSelections((prev) => ({ ...prev, [position.id]: candidate }))

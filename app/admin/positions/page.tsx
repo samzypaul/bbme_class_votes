@@ -25,11 +25,15 @@ export default async function AdminPositionsPage() {
     );
   }
 
-  const { data: positions } = await supabase
-    .from("positions")
-    .select("*")
-    .eq("election_id", election.id)
-    .order("display_order", { ascending: true });
+  const [{ data: positions }, { data: candidates }, { data: roster }] = await Promise.all([
+    supabase
+      .from("positions")
+      .select("*")
+      .eq("election_id", election.id)
+      .order("display_order", { ascending: true }),
+    supabase.from("candidates").select("*"),
+    supabase.from("class_members").select("*").order("full_name", { ascending: true }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -37,7 +41,12 @@ export default async function AdminPositionsPage() {
         <h1 className="text-2xl font-black text-foreground">Positions</h1>
         <p className="text-sm text-muted-foreground">{election.name}</p>
       </div>
-      <PositionManager electionId={election.id} positions={positions ?? []} />
+      <PositionManager
+        electionId={election.id}
+        positions={positions ?? []}
+        candidates={candidates ?? []}
+        roster={roster ?? []}
+      />
     </div>
   );
 }

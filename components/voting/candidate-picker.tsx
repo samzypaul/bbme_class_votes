@@ -5,7 +5,7 @@ import { Check, ChevronDown, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { searchCandidates } from "@/lib/voting/matching";
-import type { ClassMember } from "@/types/database";
+import type { CandidateOption } from "@/types/database";
 
 export function CandidatePicker({
   roster,
@@ -13,9 +13,9 @@ export function CandidatePicker({
   onChange,
   placeholder = "Start typing candidate name...",
 }: {
-  roster: ClassMember[];
-  value: ClassMember | null;
-  onChange: (candidate: ClassMember | null) => void;
+  roster: CandidateOption[];
+  value: CandidateOption | null;
+  onChange: (candidate: CandidateOption | null) => void;
   placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
@@ -71,7 +71,9 @@ export function CandidatePicker({
         <div className="absolute z-30 mt-1.5 max-h-64 w-full overflow-auto rounded-lg border border-border bg-card py-1 shadow-lg">
           {matches.length === 0 ? (
             <p className="px-3.5 py-3 text-sm text-muted-foreground">
-              No matching class member found. Check the spelling and try again.
+              {roster.length === 0
+                ? "No nominees have been added for this position yet."
+                : "No matching nominee found. Check the spelling and try again."}
             </p>
           ) : (
             matches.map((member) => (
